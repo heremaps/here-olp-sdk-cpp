@@ -17,9 +17,14 @@
 # SPDX-License-Identifier: Apache-2.0
 # License-Filename: LICENSE
 
+echo ">>> Installing mock server SSL certificate into OS... >>>"
+curl https://raw.githubusercontent.com/mock-server/mockserver/master/mockserver-core/src/main/resources/org/mockserver/socket/CertificateAuthorityCertificate.pem --output mock-server-cert.cer
+certutil -enterprise -f -v -addstore "Root" mock-server-cert.cer
+certutil -enterprise -f -v -addstore "CA" mock-server-cert.cer
+
 
 [[ -d "build" ]] && rm -rf build
 mkdir build && cd build
-cmake .. -G "Visual Studio 15 2017 Win64" \
+cmake .. -G "Visual Studio 16 2019" -A "x64" \
         -DCMAKE_BUILD_TYPE=$BUILD_TYPE
 cmake --build . --config $BUILD_TYPE

@@ -22,11 +22,21 @@ jobs:
       displayName: 'Commit checker script'
 - job: Windows_build
   pool:
-    vmImage: 'vs2017-win2016'
+    vmImage: 'windows-latest'
   steps:
-  - bash: scripts/windows/build.sh
+  - bash: curl https://raw.githubusercontent.com/mock-server/mockserver/master/mockserver-core/src/main/resources/org/mockserver/socket/CertificateAuthorityCertificate.pem --output mock-server-cert.cer
+    displayName: 'Get cert'
+  - powershell: Import-Certificate -FilePath mock-server-cert.cer -CertStoreLocation Cert:\LocalMachine\Root
+    displayName: 'Import cert'
+  - powershell: dir Cert:\CurrentUser\Root
+    displayName: 'Check cert CurrentUser'
+  - powershell: dir Cert:\LocalMachine\Root
+    displayName: 'Check cert LocalMachine'
+  - bash: whoami && scripts/windows/build.sh
     displayName: 'Windows Build'
-
+  - bash: sudo scripts/windows/test_fv_network.sh
+    displayName: 'Windows FV Network test'
+    condition: in(variables['Build.Reason'], 'Schedule', 'Manual')
 - job: MacOS_build
   pool:
     vmImage: 'macOS-10.14'
