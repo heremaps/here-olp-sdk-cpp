@@ -75,7 +75,8 @@ IAppender& ConsoleAppender::append(const LogMessage& message) {
 #ifdef PORTING_PLATFORM_ANDROID
   android_append_in_chunks(message.level, message.tag, formattedMessage);
 #else
-  std::cout << formattedMessage << std::endl;
+  printf("%s\n", formattedMessage.c_str());
+  //std::cout << formattedMessage << std::endl;
 #endif
   return *this;
 }

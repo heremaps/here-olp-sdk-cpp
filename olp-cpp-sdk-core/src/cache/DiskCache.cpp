@@ -404,7 +404,11 @@ DiskCache::OperationOutcome DiskCache::ApplyBatch(
       environment_->Size() >= max_size_) {
     if (!compacting_.exchange(true)) {
       if (compaction_thread_.joinable()) {
+        OLP_SDK_LOG_INFO(kLogTag, "Waiting on compaction...");
+
         compaction_thread_.join();
+        OLP_SDK_LOG_INFO(kLogTag, "Stop waiting on compaction...");
+
       }
 
       compaction_thread_ = std::thread([this]() {
@@ -419,12 +423,14 @@ DiskCache::OperationOutcome DiskCache::ApplyBatch(
   leveldb::WriteOptions write_options;
   write_options.sync = enforce_immediate_flush_;
 
+  OLP_SDK_LOG_INFO(kLogTag, "Start write to db");
   const auto status = database_->Write(write_options, batch.get());
   if (!status.ok()) {
     OLP_SDK_LOG_WARNING(kLogTag,
                         "ApplyBatch: failed, status=" << status.ToString());
     return GetApiError(status);
   }
+  OLP_SDK_LOG_INFO(kLogTag, "Write to db done");
   return NoError{};
 }
 

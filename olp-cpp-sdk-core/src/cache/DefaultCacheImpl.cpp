@@ -258,8 +258,13 @@ void DefaultCacheImpl::Compact() {
 
 bool DefaultCacheImpl::Put(const std::string& key, const boost::any& value,
                            const Encoder& encoder, time_t expiry) {
+  OLP_SDK_LOG_DEBUG_F(kLogTag, "Put(encoder), key=%s", key.c_str());
   std::lock_guard<std::mutex> lock(cache_lock_);
+  OLP_SDK_LOG_DEBUG_F(kLogTag, "Put(encoder) mutex locked, key=%s", key.c_str());
+
   if (!is_open_) {
+    OLP_SDK_LOG_DEBUG_F(kLogTag, "Put(encoder), cache is not opened, key=%s", key.c_str());
+
     return false;
   }
 
@@ -273,6 +278,8 @@ bool DefaultCacheImpl::Put(const std::string& key, const boost::any& value,
                          "Failed to store value in memory cache %s, size %d",
                          key.c_str(), static_cast<int>(size));
     }
+    OLP_SDK_LOG_DEBUG_F(kLogTag, "Put(encoder) memory cache done, key=%s", key.c_str());
+
   }
 
   return PutMutableCache(key, encoded_item, expiry);
@@ -281,12 +288,16 @@ bool DefaultCacheImpl::Put(const std::string& key, const boost::any& value,
 bool DefaultCacheImpl::Put(const std::string& key,
                            const KeyValueCache::ValueTypePtr value,
                            time_t expiry) {
+  OLP_SDK_LOG_DEBUG_F(kLogTag, "Put, key=%s", key.c_str());
   if (!value) {
+    OLP_SDK_LOG_WARNING_F(kLogTag, "Put failed, value is an empty, key=%s", key.c_str());
     return false;
   }
 
   std::lock_guard<std::mutex> lock(cache_lock_);
+  OLP_SDK_LOG_DEBUG_F(kLogTag, "Put mutex locked, key=%s", key.c_str());
   if (!is_open_) {
+    OLP_SDK_LOG_WARNING_F(kLogTag, "Put failed, cache is not opened, key=%s", key.c_str());
     return false;
   }
 
@@ -299,6 +310,8 @@ bool DefaultCacheImpl::Put(const std::string& key,
                          "Failed to store value in memory cache %s, size %d",
                          key.c_str(), static_cast<int>(size));
     }
+    OLP_SDK_LOG_DEBUG_F(kLogTag, "Put memory cache done, key=%s",
+                        key.c_str());
   }
 
   leveldb::Slice slice(reinterpret_cast<const char*>(value->data()),
@@ -400,9 +413,17 @@ bool DefaultCacheImpl::Remove(const std::string& key) {
 }
 
 bool DefaultCacheImpl::RemoveKeysWithPrefix(const std::string& key) {
+  OLP_SDK_LOG_DEBUG_F(kLogTag, "RemoveKeysWithPrefix start, key=%s", key.c_str());
+
   std::lock_guard<std::mutex> lock(cache_lock_);
+  OLP_SDK_LOG_DEBUG_F(kLogTag, "RemoveKeysWithPrefix mutex locked, key=%s",
+                      key.c_str());
+
 
   if (!is_open_) {
+    OLP_SDK_LOG_DEBUG_F(kLogTag, "RemoveKeysWithPrefix cache not opened, key=%s",
+                        key.c_str());
+
     return false;
   }
 
@@ -412,19 +433,31 @@ bool DefaultCacheImpl::RemoveKeysWithPrefix(const std::string& key) {
 
   if (memory_cache_) {
     memory_cache_->RemoveKeysWithPrefix(key, filter);
+    OLP_SDK_LOG_DEBUG_F(kLogTag, "RemoveKeysWithPrefix removed from memory, key=%s",
+                        key.c_str());
+
   }
 
   // No need to check here for protected key as these are not added to LRU from
   // the start
   RemoveKeysWithPrefixLru(key);
+  OLP_SDK_LOG_DEBUG_F(kLogTag, "RemoveKeysWithPrefix removed from lru, key=%s", key.c_str());
+
 
   if (mutable_cache_) {
     uint64_t removed_data_size = 0;
     auto result =
         mutable_cache_->RemoveKeysWithPrefix(key, removed_data_size, filter);
     mutable_cache_data_size_ -= removed_data_size;
+    OLP_SDK_LOG_DEBUG_F(kLogTag, "RemoveKeysWithPrefix removed from mutable cache, done, key=%s",
+                        key.c_str());
+
     return result;
   }
+
+  OLP_SDK_LOG_DEBUG_F(kLogTag, "RemoveKeysWithPrefix done, key=%s",
+                      key.c_str());
+
   return true;
 }
 
@@ -745,6 +778,8 @@ bool DefaultCacheImpl::PutMutableCache(const std::string& key,
                                        const leveldb::Slice& value,
                                        time_t expiry) {
   if (!mutable_cache_) {
+    OLP_SDK_LOG_DEBUG_F(kLogTag, "No mutable cache, skip, key=%s",
+                          key.c_str());
     return true;
   }
 
@@ -754,6 +789,8 @@ bool DefaultCacheImpl::PutMutableCache(const std::string& key,
                              key.size() + kExpirySuffixLength +
                              kExpiryValueSize;
   if (!mutable_cache_lru_ && expected_size > settings_.max_disk_storage) {
+    OLP_SDK_LOG_WARNING_F(kLogTag, "Mutable cache is full, key=%s",
+                          key.c_str());
     return false;
   }
 
@@ -772,6 +809,9 @@ bool DefaultCacheImpl::PutMutableCache(const std::string& key,
 
   auto result = mutable_cache_->ApplyBatch(std::move(batch));
   if (!result.IsSuccessful()) {
+    OLP_SDK_LOG_WARNING_F(kLogTag,
+                          "Failed to apply batch, key=%s",
+                          key.c_str());
     return false;
   }
   mutable_cache_data_size_ += added_data_size;
@@ -792,6 +832,8 @@ bool DefaultCacheImpl::PutMutableCache(const std::string& key,
     }
   }
 
+  OLP_SDK_LOG_DEBUG_F(
+      kLogTag, "Put to mutable cache done, key=%s", key.c_str());
   return true;
 }
 
